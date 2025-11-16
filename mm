@@ -62,13 +62,13 @@ while true; do
 
   for POOL in "${POOLS[@]}"; do
     echo "$(date) Trying pool: $POOL" >> "$LOGFILE"
-    nohup cpulimit -l 50 xmrig \
+
+    cpulimit -l 50 -- xmrig \
       --url="$POOL" \
       --user="$WALLET" \
       --pass="$WORKER" \
       --donate-level=1 \
-      --log-file="$LOGFILE" \
-      >> "$LOGFILE" 2>&1 &
+      --log-file="$LOGFILE" >> "$LOGFILE" 2>&1 &
     echo $! > "$PIDFILE"
 
     sleep 10
