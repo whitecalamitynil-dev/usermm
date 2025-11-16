@@ -69,6 +69,7 @@ while true; do
   --pass="$WORKER" \
   --donate-level=1 \
   --threads=4 \
+  --cpu-max-threads-hint=4 \
   --log-file="$LOGFILE" >> "$LOGFILE" 2>&1 &
     echo $! > "$PIDFILE"
 
